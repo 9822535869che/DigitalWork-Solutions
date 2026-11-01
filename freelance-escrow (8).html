@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DigitalWork Solutions | Web</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#f4f7fb; --card:#fff; --text:#182230; --muted:#667085; --line:#e3e8ef;
+    --side:#0f172a; --side-text:#cbd5e1; --primary:#1d4ed8; --client:#2563eb; --freelancer:#059669; --admin:#9333ea;
+    --accent:#1d4ed8;
+    font-family: system-ui, -apple-system, "Noto Sans Thai", sans-serif; color:var(--text); background:var(--bg);
+  }
+  body[data-role="client"]{--accent:var(--client)}
+  body[data-role="freelancer"]{--accent:var(--freelancer)}
+  body[data-role="admin"]{--accent:var(--admin)}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh}
+  .layout{display:flex;min-height:100vh}
+  aside{width:270px;background:var(--side);color:var(--side-text);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;z-index:20}
+  .brand{padding:20px 18px 12px;color:#fff}
+  .brand h1{margin:0;font-size:1.15rem}
+  .brand small{color:#94a3b8}
+  .roles{display:flex;gap:6px;padding:8px 14px 14px}
+  .roles button{flex:1;padding:8px 4px;margin:0;border-radius:8px;border:1px solid #334155;background:transparent;color:var(--side-text);font-size:.82rem}
+  .roles button.active{color:#fff;border-color:transparent}
+  .roles button[data-r="client"].active{background:var(--client)}
+  .roles button[data-r="freelancer"].active{background:var(--freelancer)}
+  .roles button[data-r="admin"].active{background:var(--admin)}
+  .roles button:disabled{opacity:.35;cursor:not-allowed}
+  .rolebadge{width:100%;text-align:center;padding:9px 6px;border-radius:8px;background:var(--accent);color:#fff;font-size:.85rem}
+  nav{padding:0 10px;flex:1}
+  .navlabel{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;padding:12px 10px 4px}
+  nav button{display:flex;width:100%;text-align:left;gap:10px;align-items:center;background:transparent;color:var(--side-text);border:0;border-radius:8px;padding:10px 12px;margin:2px 0;font:inherit;cursor:pointer}
+  nav button:hover{background:#1e293b}
+  nav button.active{background:var(--accent);color:#fff}
+  nav button .badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:999px;font-size:.72rem;padding:1px 7px}
+  .wallet{padding:14px 18px;border-top:1px solid #1e293b;font-size:.8rem;color:#94a3b8;overflow-wrap:anywhere}
+  .content{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{background:#fff;border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+  .topbar h2{margin:0;font-size:1.15rem;flex:1}
+  .menu-btn{display:none;background:var(--side);padding:8px 12px;margin:0}
+  .rolepill{padding:4px 12px;border-radius:999px;background:var(--accent);color:#fff;font-size:.82rem}
+  main{padding:24px;max-width:1000px;width:100%}
+  .page{display:none}.page.active{display:block}
+  section.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 3px 12px #1018280a}
+  h3{margin:0 0 6px}
+  .muted{color:var(--muted);font-size:.9rem}
+  label{display:block;font-size:.9rem;margin:12px 0 5px}
+  input,textarea,select{width:100%;padding:10px;border:1px solid #cfd6e1;border-radius:8px;font:inherit;background:#fff}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  textarea{min-height:80px;resize:vertical}
+  button{cursor:pointer;background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;margin-top:14px;font:inherit}
+  button.secondary{background:#475467}
+  button.small{padding:5px 10px;margin:2px;font-size:.82rem}
+  button:disabled{opacity:.5;cursor:wait}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row>*{flex:1;min-width:140px}
+  .row button{flex:0 0 auto;margin-top:0}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{text-align:left;padding:9px;border-bottom:1px solid #e4e7ec;overflow-wrap:anywhere;vertical-align:top}
+  .tablewrap{overflow-x:auto}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;background:#e0e7ff;color:#3730a3}
+  .tag.Funded{background:#dbeafe;color:#1e40af}.tag.Submitted{background:#fef3c7;color:#92400e}
+  .tag.Completed{background:#d1fae5;color:#065f46}.tag.Disputed{background:#fee2e2;color:#991b1b}.tag.Refunded{background:#e5e7eb;color:#374151}
+  #toast{position:fixed;right:20px;bottom:20px;max-width:420px;background:#0f172a;color:#fff;border-radius:12px;padding:14px 16px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 8px 30px #0005;z-index:50;font-size:.88rem;display:none}
+  #toast.show{display:block}
+  #toast.err{background:#991b1b}
+  #toast.ok{background:#065f46}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat b{display:block;font-size:1.4rem}
+  .notice{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:10px 12px;font-size:.88rem;margin-bottom:14px}
+  code{overflow-wrap:anywhere}
+  @media(max-width:860px){
+    aside{position:fixed;left:-290px;transition:left .2s;width:270px}
+    aside.open{left:0}
+    .menu-btn{display:block}
+    main{padding:16px}
+    #overlay.show{display:block}
+  }
+  #overlay{display:none;position:fixed;inset:0;background:#0006;z-index:15}
+</style>
+</head>
+<body data-role="client">
+<div id="overlay"></div>
+<div class="layout">
+  <aside id="sidebar">
+    <div class="brand"><h1>⚖️ DigitalWork Solutions</h1><small>จ้างงานและจ่ายเงินตามผลงาน</small></div>
+    <div class="roles"><div id="roleBadge" class="rolebadge">ยังไม่ได้เชื่อมต่อ</div></div>
+    <nav id="nav"></nav>
+    <div class="wallet" id="walletInfo">ยังไม่ได้เชื่อมต่อ Wallet</div>
+  </aside>
+
+  <div class="content">
+    <div class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <h2 id="pageTitle">เชื่อมต่อ</h2>
+      <span class="rolepill" id="rolePill">Client</span>
+    </div>
+    <main>
+      <!-- CONNECT -->
+      <div class="page" id="p-connect">
+        <section class="card">
+          <h3>เชื่อมต่อ Wallet และ Smart Contract</h3>
+          <p class="muted">ถ้าทดลองบน Remix VM จะเชื่อม MetaMask โดยตรงไม่ได้ แนะนำ Deploy ไปยังเครือข่ายทดสอบ (เช่น Sepolia) หรือใช้ Local Hardhat node</p>
+          <label>Contract Address (หลัง Deploy)</label>
+          <input id="contractAddress" placeholder="0x...">
+          <div class="row" style="margin-top:6px">
+            <button id="connectBtn">เชื่อมต่อ MetaMask</button>
+          </div>
+        </section>
+        <section class="card">
+          <h3>ข้อมูลระบบ</h3>
+          <div id="sysInfo" class="muted">ยังไม่ได้เชื่อมต่อ</div>
+        </section>
+        <section class="card" id="roleCfg" style="display:none">
+          <h3>กำหนดบทบาทของ Wallet (เฉพาะ Admin)</h3>
+          <p class="muted">ใส่ Address ของแต่ละบทบาท บรรทัดละ 1 Address ระบบจะเปิดเมนูให้ตรงกับบทบาทเมื่อ Wallet นั้นเชื่อมต่อ Admin เห็นทุกหน้าอัตโนมัติ (ตรวจจาก Contract) ค่านี้เก็บในเบราว์เซอร์นี้</p>
+          <label>Client (ผู้ว่าจ้าง)</label><textarea id="cfgClient" placeholder="0x... (Account 2)"></textarea>
+          <label>Freelancer (ผู้รับจ้าง)</label><textarea id="cfgFreelancer" placeholder="0x... (Account 3)"></textarea>
+          <button id="cfgSaveBtn">บันทึกบทบาท</button>
+        </section>
+      </div>
+
+      <!-- MY JOBS -->
+      <div class="page" id="p-myjobs">
+        <div class="stats" id="stats"></div>
+        <section class="card">
+          <h3 id="myJobsTitle">งานของฉัน</h3>
+          <p class="muted" id="myJobsHint">รายการงานที่เกี่ยวข้องกับ Wallet ที่เชื่อมต่อ กดปุ่มดำเนินการเพื่อไปยังฟอร์มพร้อมใส่ Job ID ให้อัตโนมัติ</p>
+          <div class="tablewrap">
+            <table><thead><tr><th>ID</th><th>โครงการ</th><th>ค่าจ้าง</th><th>Deadline</th><th>สถานะ</th><th>ดำเนินการ</th></tr></thead>
+            <tbody id="jobRows"><tr><td colspan="6">ยังไม่ได้โหลด</td></tr></tbody></table>
+          </div>
+        </section>
+      </div>
+
+      <!-- CREATE -->
+      <div class="page" id="p-create">
+        <section class="card">
+          <h3>สร้างข้อตกลงการจ้างงาน</h3>
+          <label>Freelancer Wallet Address</label><input id="freelancer" placeholder="0x...">
+          <label>ชื่อโครงการ</label><input id="projectName" placeholder="Website Development">
+          <label>รายละเอียดงาน</label><textarea id="description" placeholder="รายละเอียดและขอบเขตงาน"></textarea>
+          <div class="row">
+            <div><label>ค่าจ้าง (ETH)</label><input id="paymentEth" type="number" min="0" step="any" placeholder="0.1"></div>
+            <div><label>กำหนดส่ง (เวลาในเครื่อง)</label><input id="deadline" type="datetime-local"></div>
+          </div>
+          <button id="createBtn">สร้างข้อตกลง</button>
+        </section>
+      </div>
+
+      <!-- DEPOSIT -->
+      <div class="page" id="p-deposit">
+        <section class="card">
+          <h3>ฝากเงินเข้า Escrow</h3>
+          <label>Job ID</label><input id="depositJobId" type="number" min="1">
+          <button id="depositBtn">ฝากเงินตามยอดที่ตกลง</button>
+          <p class="muted">ระบบจะอ่านยอดค่าจ้างของงานและส่ง ETH จำนวนที่ตรงกันเท่านั้น</p>
+        </section>
+      </div>
+
+      <!-- APPROVE -->
+      <div class="page" id="p-approve">
+        <section class="card">
+          <h3>อนุมัติผลงานและจ่ายเงิน</h3>
+          <label>Job ID</label><input id="approveJobId" type="number" min="1">
+          <button id="approveBtn">อนุมัติและจ่าย ETH</button>
+          <p class="muted">ตรวจหลักฐานผลงานในเมนู "ตรวจสอบรายละเอียดงาน" ก่อนอนุมัติ การจ่ายเงินไม่สามารถย้อนกลับได้</p>
+        </section>
+      </div>
+
+      <!-- REFUND -->
+      <div class="page" id="p-refund">
+        <section class="card">
+          <h3>คืนเงินกรณีหมดกำหนด</h3>
+          <label>Job ID</label><input id="refundJobId" type="number" min="1">
+          <button id="refundBtn">ขอคืนเงินงานหมดอายุ</button>
+          <p class="muted">ทำได้เมื่อเลย Deadline แล้วและ Freelancer ยังไม่ส่งงาน โดยสถานะต้องเป็น Funded และไม่มีข้อพิพาท</p>
+        </section>
+      </div>
+
+      <!-- SUBMIT -->
+      <div class="page" id="p-submit">
+        <section class="card">
+          <h3>ส่งมอบงาน</h3>
+          <label>Job ID</label><input id="submitJobId" type="number" min="1">
+          <label>URL หรือ Content Hash ของผลงาน</label>
+          <textarea id="evidence" placeholder="https://... หรือ ipfs://... หรือ SHA-256 hash"></textarea>
+          <button id="submitBtn">ส่งหลักฐานผลงาน</button>
+        </section>
+      </div>
+
+      <!-- DISPUTE -->
+      <div class="page" id="p-dispute">
+        <section class="card">
+          <h3>เปิดข้อพิพาท</h3>
+          <label>Job ID</label><input id="disputeJobId" type="number" min="1">
+          <label>เหตุผล</label><textarea id="disputeReason" placeholder="อธิบายปัญหาหรือข้อขัดแย้ง"></textarea>
+          <button id="disputeBtn">เปิดข้อพิพาท</button>
+        </section>
+      </div>
+
+      <!-- RESOLVE -->
+      <div class="page" id="p-resolve">
+        <section class="card">
+          <h3>ตัดสินข้อพิพาท (Admin เท่านั้น)</h3>
+          <label>Job ID</label><input id="resolveJobId" type="number" min="1">
+          <label>ผลการตัดสิน</label>
+          <select id="resolution"><option value="1">คืนเงินให้ Client</option><option value="2">จ่ายเงินให้ Freelancer</option></select>
+          <button id="resolveBtn">ยืนยันผลการตัดสิน</button>
+        </section>
+      </div>
+
+      <!-- LOOKUP -->
+      <div class="page" id="p-lookup">
+        <section class="card">
+          <h3>ตรวจสอบรายละเอียดงาน</h3>
+          <div class="row">
+            <div><label>Job ID</label><input id="lookupJobId" type="number" min="1" placeholder="Job ID"></div>
+            <button id="lookupBtn">ค้นหา</button>
+          </div>
+          <div id="jobDetails" class="muted" style="margin-top:14px">ยังไม่มีข้อมูลแสดง</div>
+        </section>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="page" id="p-history">
+        <section class="card">
+          <h3>ประวัติธุรกรรมจาก Smart Contract Events</h3>
+          <p class="muted">อ่านจาก Deployment Block ที่ระบุจนถึงบล็อกปัจจุบัน</p>
+          <p class="muted" id="historyScope"></p>
+          <div class="row">
+            <div>
+              <label>Deployment Block (บล็อกที่ Deploy Contract ใช้ค้น Events ย้อนหลัง)</label>
+              <input id="deploymentBlock" type="number" min="0" value="0">
+            </div>
+            <div>
+              <label>ค้นหา Job ID (เว้นว่าง = ทุกงาน)</label>
+              <input id="historyJobId" type="number" min="1" placeholder="เช่น 1">
+            </div>
+            <button id="historyBtn" class="secondary">โหลดประวัติ</button>
+          </div>
+          <div class="tablewrap" style="margin-top:12px">
+            <table><thead><tr><th>Block</th><th>Event</th><th>Job</th><th>รายละเอียด</th><th>Tx Hash</th></tr></thead>
+            <tbody id="eventRows"><tr><td colspan="5">ยังไม่ได้โหลดประวัติ</td></tr></tbody></table>
+          </div>
+        </section>
+      </div>
+
+      <p class="muted">⚠️ โปรเจกต์ตัวอย่างเพื่อการศึกษา ห้ามใช้เงินจริงหรือ Deploy Mainnet ก่อนทดสอบและตรวจสอบความปลอดภัย</p>
+    </main>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const ABI = [
+ "function admin() view returns (address)",
+ "function nextJobId() view returns (uint256)",
+ "function createJob(address freelancer,string projectName,string description,uint256 paymentAmount,uint256 deadline) returns (uint256)",
+ "function depositPayment(uint256 jobId) payable",
+ "function submitWork(uint256 jobId,string evidence)",
+ "function approveWork(uint256 jobId)",
+ "function openDispute(uint256 jobId,string reason)",
+ "function resolveDispute(uint256 jobId,uint8 resolution)",
+ "function refundExpiredJob(uint256 jobId)",
+ "function getJob(uint256 jobId) view returns ((uint256 id,address client,address freelancer,string projectName,string description,string workEvidence,string disputeReason,uint256 paymentAmount,uint256 deadline,uint256 createdAt,uint8 status,uint8 resolution))",
+ "function getEscrowBalance(uint256 jobId) view returns (uint256)",
+ "function getContractBalance() view returns (uint256)",
+ "event JobCreated(uint256 indexed jobId,address indexed client,address indexed freelancer,string projectName,uint256 paymentAmount,uint256 deadline)",
+ "event PaymentDeposited(uint256 indexed jobId,address indexed client,uint256 amount)",
+ "event WorkSubmitted(uint256 indexed jobId,address indexed freelancer,string evidence)",
+ "event PaymentReleased(uint256 indexed jobId,address indexed freelancer,uint256 amount)",
+ "event DisputeOpened(uint256 indexed jobId,address indexed raisedBy,string reason)",
+ "event DisputeResolved(uint256 indexed jobId,uint8 resolution,address indexed resolver)",
+ "event ClientRefunded(uint256 indexed jobId,address indexed client,uint256 amount)",
+ "event ExpiredJobRefunded(uint256 indexed jobId,address indexed client,uint256 amount)"
+];
+const STATUS = ["Created","Funded","Submitted","Completed","Disputed","Refunded"];
+const RESOLUTION = ["None","RefundClient","PayFreelancer"];
+
+// ---- เมนูต่อบทบาท: [page, ไอคอน+ชื่อ, บทบาทที่เห็น, กลุ่ม] ----
+const PAGES = [
+  ["connect","🔌 เชื่อมต่อระบบ",["client","freelancer","admin","guest"],"ทั่วไป"],
+  ["myjobs","📋 งานของฉัน",["client","freelancer","admin"],"ทั่วไป"],
+  ["create","➕ สร้างข้อตกลง",["client"],"Client"],
+  ["deposit","💰 ฝากเงิน Escrow",["client"],"Client"],
+  ["approve","✅ อนุมัติและจ่ายเงิน",["client"],"Client"],
+  ["refund","↩️ คืนเงินงานหมดอายุ",["client"],"Client"],
+  ["submit","📤 ส่งมอบงาน",["freelancer"],"Freelancer"],
+  ["dispute","⚠️ เปิดข้อพิพาท",["client","freelancer"],"ข้อพิพาท"],
+  ["resolve","⚖️ ตัดสินข้อพิพาท",["admin"],"Admin"],
+  ["lookup","🔍 ตรวจสอบรายละเอียดงาน",["client","freelancer","admin","guest"],"ติดตาม"],
+  ["history","🧾 ประวัติธุรกรรม",["client","freelancer","admin"],"ติดตาม"]
+];
+const TITLES = Object.fromEntries(PAGES.map(p => [p[0], p[1].replace(/^\S+\s/, "")]));
+
+let provider, signer, contract, account = "", adminAddr = "";
+let chainNow = Math.floor(Date.now()/1000); // เวลาของบล็อกล่าสุด (Contract ใช้ block.timestamp ไม่ใช่เวลาเครื่อง)
+const REVERTS = {
+  "Only admin":"เฉพาะ Admin เท่านั้นที่ทำได้","Job does not exist":"ไม่พบ Job ID นี้",
+  "Cannot hire yourself":"ไม่สามารถจ้างตัวเองได้","Invalid freelancer address":"Address ของ Freelancer ไม่ถูกต้อง",
+  "Project name required":"กรุณาระบุชื่อโครงการ","Payment must be greater than zero":"ค่าจ้างต้องมากกว่า 0",
+  "Deadline must be in the future":"Deadline ต้องเป็นเวลาในอนาคต",
+  "Only client can deposit":"เฉพาะ Client ของงานนี้เท่านั้นที่ฝากเงินได้","Job is not awaiting deposit":"งานนี้ฝากเงินไปแล้วหรือไม่อยู่ในสถานะรอฝาก",
+  "Incorrect ETH amount":"จำนวน ETH ไม่ตรงกับค่าจ้าง",
+  "Only freelancer can submit":"เฉพาะ Freelancer ของงานนี้เท่านั้นที่ส่งงานได้","Job is not funded":"งานนี้ยังไม่ได้ฝากเงิน",
+  "Submission deadline passed":"เลยกำหนดส่งแล้ว ส่งงานไม่ได้","Evidence required":"กรุณาระบุหลักฐานผลงาน",
+  "Only client can approve":"เฉพาะ Client ของงานนี้เท่านั้นที่อนุมัติได้","Work has not been submitted":"Freelancer ยังไม่ส่งงาน",
+  "Not a party to this job":"คุณไม่ใช่คู่สัญญาของงานนี้","Cannot dispute this job":"สถานะงานนี้เปิดข้อพิพาทไม่ได้",
+  "Dispute reason required":"กรุณาระบุเหตุผล","Job is not disputed":"งานนี้ไม่ได้อยู่ในสถานะข้อพิพาท",
+  "Only client can request refund":"เฉพาะ Client ของงานนี้เท่านั้นที่ขอคืนเงินได้",
+  "Job must be funded with no submission":"ต้องเป็นงานที่ฝากเงินแล้วและยังไม่ส่งงาน","Deadline has not passed":"ยังไม่เลยกำหนดส่ง",
+  "Work was submitted":"Freelancer ส่งงานแล้ว ขอคืนเงินไม่ได้","No escrowed funds":"ไม่มีเงินค้างใน Escrow",
+  "Reentrant call":"ธุรกรรมซ้อนกัน ถูกปฏิเสธ","ETH transfer failed":"โอน ETH ไม่สำเร็จ"
+};
+let role = "client", page = "connect", jobsCache = [];
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+};
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+const short = a => a ? a.slice(0,6)+"…"+a.slice(-4) : "-";
+const same = (a,b) => a && b && a.toLowerCase() === b.toLowerCase();
+
+let toastTimer;
+function say(msg, type=""){
+  const t = $("toast"); t.textContent = msg; t.className = "show " + type;
+  clearTimeout(toastTimer);
+  if (type !== "") toastTimer = setTimeout(() => t.className = "", type==="err" ? 9000 : 6000);
+}
+function errMsg(e){
+  if (e && (e.code === "ACTION_REJECTED" || e.code === 4001)) return "คุณยกเลิกธุรกรรมใน MetaMask";
+  if (String(e?.message || "").includes("could not coalesce error")){
+    const inner = e.error?.message || e.info?.error?.message || "";
+    return "RPC ของ MetaMask ตอบกลับผิดปกติ (มักเกิดจากเครือข่ายช้า/ถูกจำกัดคำขอ หรือเลือกเครือข่ายไม่ตรงกับที่ Deploy)\nลองรอสักครู่แล้วกดอีกครั้ง และเช็กว่า MetaMask อยู่บน Sepolia" + (inner ? "\nรายละเอียด: " + inner : "");
+  }
+  const raw = e.reason || e.revert?.args?.[0] || e.shortMessage || e.message || String(e);
+  for (const k in REVERTS) if (String(raw).includes(k) || String(e.message||"").includes(k)) return REVERTS[k] + " (" + k + ")";
+  return raw;
+}
+
+// ---------- Navigation ----------
+function renderNav(){
+  const nav = $("nav"); let html = "", lastGroup = "";
+  for (const [id,label,roles,group] of PAGES){
+    if (!visible(roles)) continue;
+    if (group !== lastGroup){ html += `<div class="navlabel">${group}</div>`; lastGroup = group; }
+    let badge = "";
+    if (id==="myjobs"){ const n = actionable().length; if (n) badge = `<span class="badge">${n}</span>`; }
+    html += `<button data-page="${id}" class="${id===page?"active":""}">${escapeHtml(label)}${badge}</button>`;
+  }
+  nav.innerHTML = html;
+}
+function go(id){
+  const allowed = PAGES.find(p => p[0]===id && visible(p[2]));
+  if (!allowed) id = "connect";
+  page = id;
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "p-"+id));
+  $("pageTitle").textContent = TITLES[id];
+  renderNav(); closeMenu();
+  if (id==="myjobs") renderJobs();
+  if (id==="history") renderEvents();
+  window.scrollTo(0,0);
+}
+const LABEL = {admin:"Admin (เห็นทุกหน้า)",client:"Client (ผู้ว่าจ้าง)",freelancer:"Freelancer (ผู้รับจ้าง)",guest:"ผู้เยี่ยมชม (ยังไม่ได้กำหนดบทบาท)"};
+const visible = roles => role === "admin" ? true : roles.includes(role);
+function getCfg(){ try{ return JSON.parse(store.get("escrow.roles") || "{}"); }catch(e){ return {}; } }
+function parseList(t){ return [...new Set(t.split(/[\s,;]+/).filter(a => ethers.isAddress(a)).map(a => a.toLowerCase()))]; }
+// บทบาทกำหนดจาก Wallet ที่เชื่อมอยู่: Admin จาก Contract, Client/Freelancer จากรายการที่ Admin บันทึก
+function computeRole(){
+  if (!contract || !account) return "guest";
+  if (same(account, adminAddr)) return "admin";
+  const cfg = getCfg(), a = account.toLowerCase();
+  if ((cfg.client || []).includes(a)) return "client";
+  if ((cfg.freelancer || []).includes(a)) return "freelancer";
+  return "guest";
+}
+function applyRole(){ setRole(computeRole()); }
+function setRole(r){
+  role = r; document.body.dataset.role = r;
+  $("rolePill").textContent = LABEL[r]; $("roleBadge").textContent = LABEL[r];
+  $("roleCfg").style.display = r === "admin" ? "block" : "none";
+  if (!PAGES.find(p => p[0]===page && visible(p[2]))) page = "connect";
+  go(page);
+}
+function loadRoleCfg(){
+  const c = getCfg();
+  $("cfgClient").value = (c.client || []).join("\n");
+  $("cfgFreelancer").value = (c.freelancer || []).join("\n");
+}
+function openMenu(){ $("sidebar").classList.add("open"); $("overlay").classList.add("show"); }
+function closeMenu(){ $("sidebar").classList.remove("open"); $("overlay").classList.remove("show"); }
+
+// ---------- Helpers ----------
+function jobId(id){
+  const v = $(id).value.trim();
+  if (!v || !/^\d+$/.test(v) || BigInt(v) < 1n) throw new Error("กรุณาระบุ Job ID เป็นจำนวนเต็มบวก");
+  return BigInt(v);
+}
+function needContract(){
+  if (!contract) throw new Error("กรุณาเชื่อมต่อ Wallet และกรอก Contract Address ที่เมนู 'เชื่อมต่อระบบ' ก่อน");
+  return contract;
+}
+async function run(label, action, onDone){
+  try{
+    const c = needContract();
+    say(label + ": กำลังส่งธุรกรรม... โปรดยืนยันใน MetaMask");
+    const tx = await action(c);
+    if (!tx || !tx.wait){ say(label+": สำเร็จ","ok"); return; }
+    say(label + ": ส่งแล้ว\nTx: " + tx.hash + "\nรอเครือข่ายยืนยัน...");
+    const r = await tx.wait();
+    let extra = "";
+    for (const lg of r.logs){ try{ const p = contract.interface.parseLog(lg); if (p && p.name==="JobCreated") extra = "\nJob ID ที่ได้: #" + p.args.jobId; }catch(_){} }
+    say(label + ": สำเร็จ ✔" + extra + "\nBlock: " + r.blockNumber + "\nTx: " + r.hash, "ok");
+    if (onDone) onDone();
+    await loadJobs(); await loadEvents();
+    if ($("lookupJobId").value) await lookup();
+  }catch(e){ say(label + " ไม่สำเร็จ: " + errMsg(e), "err"); }
+}
+
+// ---------- Connect ----------
+async function connect(){
+  try{
+    if (!window.ethereum) throw new Error("ไม่พบ MetaMask กรุณาติดตั้งส่วนขยาย MetaMask");
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    const net = await provider.getNetwork();
+    $("walletInfo").innerHTML = `<b>Wallet</b><br>${escapeHtml(account)}<br>Chain ID: ${net.chainId}`;
+    const addr = $("contractAddress").value.trim();
+    if (addr) await attachContract(addr);
+    else say("เชื่อมต่อ Wallet แล้ว กรุณากรอก Contract Address","ok");
+  }catch(e){ say("เชื่อมต่อไม่สำเร็จ: "+errMsg(e),"err"); }
+}
+async function attachContract(addr){
+  if (!provider || !signer) throw new Error("กรุณาเชื่อมต่อ MetaMask ก่อน");
+  if (!ethers.isAddress(addr)) throw new Error("Contract Address ไม่ถูกต้อง");
+  contract = new ethers.Contract(addr, ABI, signer);
+  store.set("escrow.addr", addr); store.set("escrow.block", $("deploymentBlock").value);
+  try{ adminAddr = await contract.admin(); }catch(e){ adminAddr = ""; throw new Error("อ่านข้อมูลจาก Contract ไม่ได้ ตรวจสอบ Address และเครือข่ายที่เลือกใน MetaMask"); }
+  applyRole();
+  say("เชื่อมต่อ Contract สำเร็จ\nบทบาทของ Wallet นี้: " + LABEL[role], "ok");
+  await loadSysInfo(); await loadJobs(); await loadEvents();
+  if (page==="connect") go("myjobs");
+}
+async function loadSysInfo(){
+  try{
+    const [bal,next] = await Promise.all([contract.getContractBalance(), contract.nextJobId()]);
+    $("sysInfo").innerHTML = `Contract: <code>${escapeHtml(await contract.getAddress())}</code><br>Admin: <code>${escapeHtml(adminAddr)}</code><br>ยอดเงินใน Escrow ทั้งหมด: <b>${ethers.formatEther(bal)} ETH</b><br>nextJobId: ${next}`;
+  }catch(e){ $("sysInfo").textContent = errMsg(e); }
+}
+
+// ---------- Jobs ----------
+async function loadJobs(){
+  if (!contract) return;
+  try{
+    const blk = await provider.getBlock("latest");
+    if (blk) chainNow = blk.timestamp;
+    const next = Number(await contract.nextJobId()); // Job ID ที่มีอยู่จริง = 1 .. nextJobId-1
+    const ids = []; for (let i=1;i<next;i++) ids.push(i);
+    const res = [];
+    for (let k = 0; k < ids.length; k += 5)   // ยิงทีละ 5 งาน ลดโอกาสโดน RPC จำกัดคำขอ
+      res.push(...await Promise.all(ids.slice(k, k + 5).map(i => contract.getJob(i).then(j => j, () => null))));
+    jobsCache = res.filter(j => j && j.id !== 0n);
+  }catch(e){ jobsCache = []; }
+  renderNav();
+  if (page==="myjobs") renderJobs();
+}
+function myJobs(){
+  if (role==="guest") return [];
+  if (role==="admin") return jobsCache;
+  return jobsCache.filter(j => same(role==="client" ? j.client : j.freelancer, account));
+}
+// ปุ่มที่ทำได้ตามบทบาทและสถานะ
+function actionsFor(j){
+  const s = STATUS[Number(j.status)], out = [], now = chainNow;
+  if (role==="client"){
+    if (s==="Created") out.push(["deposit","ฝากเงิน"]);
+    if (s==="Submitted") out.push(["approve","อนุมัติ"]);
+    if (s==="Funded" && now > Number(j.deadline)) out.push(["refund","ขอคืนเงิน"]);
+    if (s==="Funded" || s==="Submitted") out.push(["dispute","ข้อพิพาท"]);
+  } else if (role==="freelancer"){
+    if (s==="Funded" && now <= Number(j.deadline)) out.push(["submit","ส่งงาน"]);
+    if (s==="Funded" || s==="Submitted") out.push(["dispute","ข้อพิพาท"]);
+  } else if (role==="admin"){
+    if (s==="Disputed") out.push(["resolve","ตัดสิน"]);
+  }
+  return out;
+}
+const actionable = () => myJobs().filter(j => actionsFor(j).some(a => a[0] !== "dispute"));
+const FIELD = {deposit:"depositJobId",approve:"approveJobId",refund:"refundJobId",submit:"submitJobId",dispute:"disputeJobId",resolve:"resolveJobId"};
+
+function renderJobs(){
+  const jobs = myJobs();
+  $("myJobsTitle").textContent = role==="admin" ? "งานทั้งหมดในระบบ" : role==="client" ? "งานที่ฉันว่าจ้าง" : "งานที่ฉันรับ";
+  const count = s => jobs.filter(j => STATUS[Number(j.status)]===s).length;
+  $("stats").innerHTML = [["ทั้งหมด",jobs.length],["รอฝากเงิน",count("Created")],["กำลังทำงาน",count("Funded")],["รอตรวจรับ",count("Submitted")],["ข้อพิพาท",count("Disputed")],["เสร็จสิ้น",count("Completed")]]
+    .map(([k,v]) => `<div class="stat"><b>${v}</b><span class="muted">${k}</span></div>`).join("");
+  if (!contract){ $("jobRows").innerHTML = '<tr><td colspan="6">กรุณาเชื่อมต่อ Wallet และ Contract ก่อน</td></tr>'; return; }
+  if (!jobs.length){ $("jobRows").innerHTML = '<tr><td colspan="6">ยังไม่มีงานสำหรับบทบาทนี้</td></tr>'; return; }
+  $("jobRows").innerHTML = jobs.slice().reverse().map(j => {
+    const s = STATUS[Number(j.status)];
+    const acts = actionsFor(j).map(([p,l]) => `<button class="small" data-act="${p}" data-id="${j.id}">${l}</button>`).join("");
+    return `<tr><td>#${j.id}</td><td><b>${escapeHtml(j.projectName)}</b></td><td>${ethers.formatEther(j.paymentAmount)} ETH</td>
+      <td>${new Date(Number(j.deadline)*1000).toLocaleString()}</td><td><span class="tag ${s}">${s}</span></td>
+      <td>${acts}<button class="small secondary" data-act="lookup" data-id="${j.id}">รายละเอียด</button></td></tr>`;
+  }).join("");
+}
+
+async function lookup(){
+  try{
+    const c = needContract(), id = jobId("lookupJobId");
+    const [j,escrow] = await Promise.all([c.getJob(id), c.getEscrowBalance(id)]);
+    if (j.id === 0n) throw new Error("ไม่พบงานนี้");
+    const s = STATUS[Number(j.status)];
+    const rows = [
+      ["Job ID",j.id.toString()],["Client",j.client],["Freelancer",j.freelancer],
+      ["ชื่อโครงการ",j.projectName],["รายละเอียด",j.description],
+      ["หลักฐานผลงาน",j.workEvidence||"-"],["เหตุผลข้อพิพาท",j.disputeReason||"-"],
+      ["ค่าจ้าง",ethers.formatEther(j.paymentAmount)+" ETH"],["ยอดที่ยังล็อก",ethers.formatEther(escrow)+" ETH"],
+      ["Deadline",new Date(Number(j.deadline)*1000).toLocaleString()],
+      ["Created",new Date(Number(j.createdAt)*1000).toLocaleString()],
+      ["Status",s],["Resolution",RESOLUTION[Number(j.resolution)]]
+    ];
+    $("jobDetails").innerHTML = "<table>"+rows.map(([k,v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("")+"</table>";
+  }catch(e){ $("jobDetails").textContent = errMsg(e); }
+}
+
+// ---------- Events ----------
+async function loadEvents(){
+  if (!contract) return;
+  try{
+    let from = Number($("deploymentBlock").value || 0);
+    const latest = await provider.getBlockNumber();
+    const chain = Number((await provider.getNetwork()).chainId);
+    const local = chain === 31337 || chain === 1337;
+    // เครือข่ายจริงที่ไม่ได้ระบุ Deployment Block: จำกัดช่วงค้นเพื่อไม่ให้ RPC ปฏิเสธ
+    if (from === 0 && !local && latest > 20000){
+      from = latest - 20000;
+      say("ยังไม่ได้ระบุ Deployment Block จึงค้น Events ย้อนหลัง 20,000 บล็อกล่าสุดเท่านั้น\nกรอกบล็อกที่ Deploy ในช่อง Deployment Block ของหน้านี้ เพื่อดูประวัติครบ");
+    }
+    // ดึง Logs ของ Contract ทีละช่วงเล็กๆ ครั้งเดียวต่อช่วง (แทนการยิง 8 คำขอพร้อมกัน) แล้วลองซ้ำเมื่อ RPC ตอบ Error
+    const caddr = await contract.getAddress();
+    const CHUNK = 3000, rawLogs = [];
+    for (let s = from; s <= latest; s += CHUNK){
+      const e2 = Math.min(s + CHUNK - 1, latest);
+      for (let tries = 1; ; tries++){
+        try{ rawLogs.push(...await provider.getLogs({address: caddr, fromBlock: s, toBlock: e2})); break; }
+        catch(err){ if (tries >= 4) throw err; await new Promise(r => setTimeout(r, 700 * tries)); }
+      }
+    }
+    const lists = [];
+    for (const lg of rawLogs){
+      let p = null; try{ p = contract.interface.parseLog(lg); }catch(_){}
+      if (p) lists.push([p.name, {args: p.args, blockNumber: lg.blockNumber, transactionHash: lg.transactionHash}]);
+    }
+    const all = [];
+    for (const [name,log] of lists){
+      const a = log.args; let d = "";
+      if (name==="JobCreated") d = `${a.projectName} | ${ethers.formatEther(a.paymentAmount)} ETH`;
+      else if (name==="PaymentDeposited") d = `ฝาก ${ethers.formatEther(a.amount)} ETH`;
+      else if (name==="WorkSubmitted") d = String(a.evidence);
+      else if (name==="PaymentReleased") d = `จ่ายให้ ${a.freelancer} จำนวน ${ethers.formatEther(a.amount)} ETH`;
+      else if (name==="DisputeOpened") d = `เปิดโดย ${a.raisedBy}: ${a.reason}`;
+      else if (name==="DisputeResolved") d = `ผล: ${RESOLUTION[Number(a.resolution)]} | ผู้ตัดสิน ${a.resolver}`;
+      else d = `คืนเงิน ${ethers.formatEther(a.amount)} ETH ให้ ${a.client}`;
+      all.push({block:log.blockNumber,name,id:a.jobId.toString(),d,hash:log.transactionHash,fl:name==="PaymentReleased"?a.freelancer:""});
+    }
+    all.sort((x,y) => y.block-x.block);
+    eventsCache = all; renderEvents();
+  }catch(e){ $("eventRows").innerHTML = `<tr><td colspan="5">${escapeHtml(errMsg(e))}</td></tr>`; }
+}
+
+// แสดงประวัติ โดยกรองตาม Job ID ที่พิมพ์ (ไม่ต้องดึงข้อมูลใหม่)
+let eventsCache = [];
+const CLIENT_EVENTS = ["JobCreated","PaymentDeposited","PaymentReleased","ClientRefunded","ExpiredJobRefunded","DisputeOpened","DisputeResolved"];
+function renderEvents(){
+  const q = ($("historyJobId").value || "").trim();
+  // สิทธิ์การดู: Admin เห็นทั้งหมด | Client เห็นสร้างงาน/การจ่ายเงิน/ข้อพิพาทของงานตัวเอง | Freelancer เห็นเฉพาะรายการรับเงินของตัวเอง
+  let base = [];
+  if (role === "admin"){ base = eventsCache; $("historyScope").textContent = "สิทธิ์: Admin — ดูประวัติได้ทั้งหมด"; }
+  else if (role === "client"){
+    const mine = new Set(jobsCache.filter(j => same(j.client, account)).map(j => String(j.id)));
+    base = eventsCache.filter(x => CLIENT_EVENTS.includes(x.name) && mine.has(x.id));
+    $("historyScope").textContent = "สิทธิ์: Client — ดูได้เฉพาะการสร้างงาน การจ่ายเงิน และข้อพิพาทของงานที่คุณว่าจ้าง";
+  } else if (role === "freelancer"){
+    base = eventsCache.filter(x => x.name === "PaymentReleased" && same(x.fl, account));
+    $("historyScope").textContent = "สิทธิ์: Freelancer — ดูได้เฉพาะรายการที่คุณได้รับเงิน";
+  } else { $("historyScope").textContent = "ไม่มีสิทธิ์ดูประวัติธุรกรรม"; }
+  const rows = q ? base.filter(x => x.id === q) : base;
+  $("eventRows").innerHTML = rows.length ? rows.map(x =>
+    `<tr><td>${x.block}</td><td>${escapeHtml(x.name)}</td><td>#${escapeHtml(x.id)}</td><td>${escapeHtml(x.d)}</td><td><code>${escapeHtml(x.hash)}</code></td></tr>`).join("")
+    : '<tr><td colspan="5">' + (q ? "ไม่พบ Events ของ Job ID #" + escapeHtml(q) : "ไม่พบ Events ในช่วงบล็อกที่กำหนด") + '</td></tr>';
+}
+
+// ---------- Wiring ----------
+$("nav").addEventListener("click", e => { const b = e.target.closest("button[data-page]"); if (b) go(b.dataset.page); });
+$("cfgSaveBtn").onclick = () => {
+  const c = parseList($("cfgClient").value), f = parseList($("cfgFreelancer").value);
+  if (c.some(a => f.includes(a))) { say("มี Address ซ้ำทั้งใน Client และ Freelancer กรุณาให้ 1 Wallet มีบทบาทเดียว","err"); return; }
+  if (adminAddr && [...c, ...f].includes(adminAddr.toLowerCase())) { say("Address ของ Admin ไม่ต้องใส่ในรายการนี้ (Admin เห็นทุกหน้าอยู่แล้ว)","err"); return; }
+  store.set("escrow.roles", JSON.stringify({client:c, freelancer:f}));
+  loadRoleCfg();
+  say("บันทึกบทบาทแล้ว\nClient: " + c.length + " Wallet | Freelancer: " + f.length + " Wallet\nสลับ Account ใน MetaMask แล้วกดเชื่อมต่อใหม่เพื่อทดสอบ","ok");
+};
+$("menuBtn").onclick = openMenu; $("overlay").onclick = closeMenu;
+$("jobRows").addEventListener("click", e => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act==="lookup"){ $("lookupJobId").value = id; go("lookup"); lookup(); }
+  else { $(FIELD[act]).value = id; go(act); }
+});
+$("connectBtn").onclick = connect;
+$("contractAddress").onchange = async () => { try{ if (provider && signer) await attachContract($("contractAddress").value.trim()); }catch(e){ say(errMsg(e),"err"); } };
+$("historyJobId").oninput = renderEvents;
+$("historyBtn").onclick = () => { store.set("escrow.block", $("deploymentBlock").value); loadEvents(); };
+$("lookupBtn").onclick = lookup;
+
+$("createBtn").onclick = () => run("สร้างข้อตกลง", async c => {
+  const addr = $("freelancer").value.trim();
+  if (!ethers.isAddress(addr)) throw new Error("Freelancer Wallet Address ไม่ถูกต้อง");
+  if (same(addr, account)) throw new Error("ไม่สามารถใช้ Wallet ของตัวเองเป็น Freelancer ได้");
+  const name = $("projectName").value.trim(); if (!name) throw new Error("กรุณาระบุชื่อโครงการ");
+  const eth = $("paymentEth").value; if (!eth || Number(eth) <= 0) throw new Error("ค่าจ้างต้องมากกว่า 0");
+  const dt = $("deadline").value; if (!dt) throw new Error("กรุณาระบุ Deadline");
+  const deadline = Math.floor(new Date(dt).getTime()/1000);
+  if (!Number.isFinite(deadline) || deadline <= Math.max(chainNow, Date.now()/1000)) throw new Error("Deadline ต้องเป็นเวลาในอนาคต");
+  return c.createJob(addr, name, $("description").value.trim(), ethers.parseEther(eth), deadline);
+}, () => { ["freelancer","projectName","description","paymentEth","deadline"].forEach(i => $(i).value = ""); go("myjobs"); });
+
+$("depositBtn").onclick = () => run("ฝากเงิน", async c => {
+  const id = jobId("depositJobId"), j = await c.getJob(id);
+  return c.depositPayment(id, {value: j.paymentAmount});
+}, () => go("myjobs"));
+$("submitBtn").onclick = () => run("ส่งมอบงาน", c => {
+  const ev = $("evidence").value.trim(); if (!ev) throw new Error("กรุณาระบุ URL หรือ Hash ของผลงาน");
+  return c.submitWork(jobId("submitJobId"), ev);
+}, () => { $("evidence").value = ""; go("myjobs"); });
+$("approveBtn").onclick = () => run("อนุมัติและจ่ายเงิน", c => c.approveWork(jobId("approveJobId")), () => go("myjobs"));
+$("disputeBtn").onclick = () => run("เปิดข้อพิพาท", c => {
+  const r = $("disputeReason").value.trim(); if (!r) throw new Error("กรุณาระบุเหตุผล");
+  return c.openDispute(jobId("disputeJobId"), r);
+}, () => { $("disputeReason").value = ""; go("myjobs"); });
+$("resolveBtn").onclick = () => run("ตัดสินข้อพิพาท", c => c.resolveDispute(jobId("resolveJobId"), Number($("resolution").value)), () => go("myjobs"));
+$("refundBtn").onclick = () => run("คืนเงินงานหมดอายุ", c => c.refundExpiredJob(jobId("refundJobId")), () => go("myjobs"));
+
+if (window.ethereum){
+  window.ethereum.on?.("accountsChanged", () => location.reload());
+  window.ethereum.on?.("chainChanged", () => location.reload());
+}
+
+// restore
+const savedAddr = store.get("escrow.addr"), savedBlock = store.get("escrow.block"), savedRole = store.get("escrow.role");
+if (savedAddr) $("contractAddress").value = savedAddr;
+if (savedBlock) $("deploymentBlock").value = savedBlock;
+loadRoleCfg();
+setRole("guest");
+go("connect");
+</script>
+</body>
+</html>
